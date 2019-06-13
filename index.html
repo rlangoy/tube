@@ -31,6 +31,7 @@
                 margin: 0;
                 padding: 0;
             }
+
             #renderCanvas {
                 width: 100%;
                 height: 100%;
@@ -42,6 +43,9 @@
     <canvas id="renderCanvas"></canvas>
     <script>
         var canvas = document.getElementById("renderCanvas");
+        var okMaterial;
+        var warningMat;
+
         var createScene = function () {
             var scene = new BABYLON.Scene(engine);
         
@@ -59,25 +63,18 @@
             
                 // Set the target of the camera to the first imported mesh
                 camera.target = newMeshes[0];
-                var okMaterial = new BABYLON.StandardMaterial("okMaterial", scene);
-                var warningMat = new BABYLON.StandardMaterial("warningMat", scene);
+
+                okMaterial = new BABYLON.StandardMaterial("okMaterial", scene);
+                warningMat = new BABYLON.StandardMaterial("warningMat", scene);
+
                 warningMat.diffuseColor = BABYLON.Color3.Red();
                 warningMat.alpha = 0.55;
+
                 okMaterial.diffuseColor = BABYLON.Color3.Blue();
                 okMaterial.alpha = 0.35;
-                /*warningMat.diffuseColor = new BABYLON.Color3(1, 0, 0);
-                myMaterial.diffuseColor = new BABYLON.Color3(.1, 1, .1);
-                myMaterial.specularColor = new BABYLON.Color3(.1, .1, .1);
-                myMaterial.emissiveColor = new BABYLON.Color3(.1, .1, .1);
-                myMaterial.ambientColor = new BABYLON.Color3(.1, .1, .1);
-                */
-                /*myMaterial.ambientTexture = new BABYLON.Texture("20190604_141827.jpg", scene);
-                myMaterial.diffuseTexture = new BABYLON.Texture("20190604_141827.jpg", scene);
-                myMaterial.specularTexture = new BABYLON.Texture("20190604_141827.jpg", scene);
-                myMaterial.emissiveTexture = new BABYLON.Texture("20190604_141827.jpg", scene);   
-*/
-                //mesh.material = myMaterial;
+
                 //Load all alpides and apply material/colout
+                console.log(`[message] Loaded number of meshes: ${newMeshes.length} <- length`);
                 var x;
                 for (x in newMeshes) {
                     //if(x%2)
@@ -86,12 +83,8 @@
                     else
                         newMeshes[x].material= okMaterial;
                 }
-                /*newMeshes[0].material= myMaterial
-                newMeshes[1].material= myMaterial
-                newMeshes[2].material= myMaterial
-                newMeshes[100].material= myMaterial
-                */
             });
+
 /*
             BABYLON.SceneLoader.Append("./", "test.stl", scene, function (scene) {
                     // do something with the scene
@@ -107,11 +100,46 @@
         
         var engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
         var scene = createScene();
+
+        //let socket = new WebSocket("ws://localhost:7700/");
+        let socket = new WebSocket("wss://ll.langoy.in:7700/");
+
+        socket.onopen = function(e) {
+          console.log("[open] Connection established, send -> server");
+          socket.send("My name is John");
+        };
+
+        socket.onmessage = function(event) {
+          console.log(`[message] Data received: ${event.data} <- server`);
+          var myObj = JSON.parse(event.data);  // Read input data as json
+          console.log(`ALPIDE.ID: ${myObj.ALPIDE.ID} ALPIDE.Colour.Red=${myObj.ALPIDE.Colour.Red}`);
+          //newMeshes[myObj.ALPIDE.ID].material= okMaterial;
+          if(myObj.ALPIDE.Colour.Red>128)
+            scene.meshes[myObj.ALPIDE.ID].material=okMaterial;
+        else
+             scene.meshes[myObj.ALPIDE.ID].material=warningMat;
+        };
+
+        socket.onclose = function(event) {
+          if (event.wasClean) {
+            console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+          } else {
+            // e.g. server process killed or network down
+            // event.code is usually 1006 in this case
+            console.log('[close] Connection died');
+          }
+        };
+
+        socket.onerror = function(error) {
+          console.log(`[error] ${error.message}`);
+        };
+
         engine.runRenderLoop(function () {
             if (scene) {
                 scene.render();
             }
         });
+
         // Resize
         window.addEventListener("resize", function () {
             engine.resize();
